@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include "DHT.h"
@@ -13,19 +14,15 @@ const char* temperatureTopic = "sensors/dht2/temperature";
 
 unsigned long lastMeasureAttempt = 0;
 
-// DHT dht;
 DHT dht(DHTPIN, DHTTYPE);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-const long measurementInterval = 5000; //dht.getMinimumSamplingPeriod();
+const long measurementInterval = 5000;
 
-void setup() {
-  Serial.begin(115200);
-  Serial.println();
-  setup_wifi();
-  client.setServer(mqttServer, mqttPort);
-  dht.begin();
+void yield(unsigned long yieldDuration) { //overload yield function to allow for any ms delay
+  unsigned long yieldBegan = millis();
+  while ( (millis() - yieldBegan) < yieldDuration ) yield();
 }
 
 void setup_wifi() {
@@ -37,6 +34,17 @@ void setup_wifi() {
   }
   Serial.print("WiFi connected. IP: ");
   Serial.println(WiFi.localIP());
+}
+
+void reportResults(float temp, float humid) {
+  if (!isnan(temp) || !isnan(humid)) {
+    Serial.println("-----------------------");
+    Serial.println("Humidity (%): " + String(humid));
+    Serial.println("Temperature (°C): " + String(temp));
+    Serial.println("-----------------------");
+    client.publish(humidityTopic, String(humid).c_str(), true);
+    client.publish(temperatureTopic, String(temp).c_str(), true);
+  }
 }
 
 void reconnect() {
@@ -53,6 +61,14 @@ void reconnect() {
   }
 }
 
+void setup() {
+  Serial.begin(115200);
+  Serial.println();
+  setup_wifi();
+  client.setServer(mqttServer, mqttPort);
+  dht.begin();
+}
+
 void loop() {
   if (WiFi.status() != WL_CONNECTED) setup_wifi();
   if (!client.connected()) reconnect();
@@ -60,23 +76,5 @@ void loop() {
   if ((millis() - lastMeasureAttempt) > measurementInterval) {
     reportResults(dht.readTemperature(), dht.readHumidity());
     lastMeasureAttempt = millis();
-  }
-}
-
-void reportResults(float temp, float humid) {
-  if (!isnan(temp) || !isnan(humid)) {
-    Serial.println("-----------------------");
-    Serial.println("Humidity (%): " + String(humid));
-    Serial.println("Temperature (°C): " + String(temp));
-    Serial.println("-----------------------");
-    client.publish(humidityTopic, String(humid).c_str(), true);
-    client.publish(temperatureTopic, String(temp).c_str(), true);
-  }
-}
-
-void yield(unsigned long yieldDuration) { //overload yield function to allow for any ms delay
-  unsigned long yieldBegan = millis();
-  while ( (millis() - yieldBegan) < yieldDuration ) {
-    yield();
   }
 }
