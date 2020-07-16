@@ -67,6 +67,7 @@ void reconnectMqtt() {
 }
 
 void setup() {
+  if(debug) Serial.begin(115200);
   if(resetWifiSettings) LittleFS.format();
   if(debug) Serial.println("mounting FS...");
 
